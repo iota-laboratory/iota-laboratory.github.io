@@ -1,0 +1,3 @@
+embed_iota_sdk_wasm.min.js
+generate_js/node_modules/
+generate_js/package-lock.json

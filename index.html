@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>IOTA Laboratory</title>
+<script src="iota_sdk_wasm.min.js"></script>
+<script src="block_payload_types.js"></script>
+<script src="script.js"></script>
+<link rel="stylesheet" type="text/css" href="style.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-fork-ribbon-css/0.2.0/gh-fork-ribbon.min.css" />
+<body>
+<a class="github-fork-ribbon" href="https://github.com/iota-laboratory/iota-laboratory.github.io" title="Fork me on GitHub">Fork me on GitHub</a>
+<div id="snackbar"></div>
+<dialog id="pasteHelper">
+	<p>Clipboard permission denied.</p>
+	<p>Paste here: <input id="pasteHelperBox" type="text" style="width:2em"></p>
+</dialog>
+<h1>IOTA Laboratory</h1>
+
+<p><label>Network: <select id="networkSelect"><option>(None)</option></select></label> | <label>Account: <select id="accountSelect"><option>(None)</option></select></label> | Last submitted block: <tt id="lastPostedBlock">(None)</tt></p>
+
+<ul class="nav">
+	<li data-id="conf">Configuration</li>
+	<li data-id="client" class="net">Client</li>
+	<li data-id="milestone" class="net">Milestone</li>
+	<li data-id="retrieve" class="net">Block Retriever</li>
+	<li class="auth net" data-id="wallet">Wallet</li>
+	<li class="net" data-id="addr">Addresses</li>
+	<li data-id="edit">Block Payload Editor</li>
+	<li class="auth" data-id="sign">Signer</li>
+	<li class="net" data-id="submit">Block Submitter</li>
+</ul>
+<div style="clear: left;"></div>
+
+<section data-id="conf">
+<h2>Configuration</h2>
+<p>
+	Welcome to the IOTA Laboratory. To get started, select a network and/or account from the lists above.
+	You can also add new networks or accounts here, that can optionally persist within the session or across sessions.
+	Be aware that the protection of secret keys, seeds and mnemonic phrases inside the browser is less secure than typical wallet applications
+	(in particular, there is no password protection or encryption), so use this Laboratory only with seeds that do not contain substantial amounts of currency or assets.
+</p>
+
+<p>Network/Account names starting with * will be selected automatically on page load.</p>
+
+<p>If you like this service, feel free to <a href="https://github.com/schierlm/donate-iota">donate some IOTA or SMR</a> or <a href="https://github.com/iota-laboratory/iota-laboratory.github.io">contribute</a>.</p>
+
+<h3>Add/Edit network</h3>
+<dl class="settings">
+	<dt>Name:</dt><dd><input id="netname" type="text"></dd>
+	<dt>URL:</dt><dd><input id="neturl" type="text"></dd>
+	<dt>Coin Type:</dt><dd>
+		<input id="netcoin" type="number" style="width: calc(50vw - 50em)">
+		<label><input id="netcoiniota" type="radio" name="netcointype"> IOTA</label>
+		<label><input id="netcoinsmr" type="radio" name="netcointype"> Shimmer</label>
+		<label><input id="netcoinrms" type="radio" name="netcointype"> Testnet</label>
+	</dd>
+	<dt>Explorer URL (optional):</dt><dd><input id="netexp" type="text"></dd>
+	<dt>Storage retention:</dt><dd><select id="netstor">
+		<option value="0" selected>Browser window</option>
+		<option value="1">Session Storage</option>
+		<option value="2">Local Storage</option>
+	</select> <input id="netsave" type="button" value="Save"> <input id="netdelete" type="button" value="Delete"></dd>
+</dl>
+
+<h3>Add/Delete account</h3>
+<dl class="settings">
+	<dt>Name:</dt><dd><input id="authname" type="text" class="short"> <input id="authdelete" type="button" value="Delete"></dd>
+	<dt>Secret type:</dt><dd>
+		<label><input id="authtypeseed" type="radio" name="authtype" checked> Mnemonic/Hex Seed</label>
+		<label><input id="authtypekey" type="radio" name="authtype"> Private Key</label>
+	</dd>
+	<div id="authseedfields">
+	<dt>Mnemonic:</dt><dd><input id="authmnemo" type="text" class="short"> <input id="authgen" type="button" value="Generate"></dd>
+	<dt>Hex Seed:</dt><dd><input id="authseed" type="text" value="0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" maxlength="130" class="short"></dd>
+	<dt>Account Names:</dt><dd><textarea id="authseedacct">Wallet 1&#10;Wallet 2&#10;Wallet 3</textarea></dd>
+	</div>
+	<div id="authkeyfields" style="display:none">
+	<dt>Private Key:</dt><dd><input id="authkey" type="text" value="0x0000000000000000000000000000000000000000000000000000000000000000" maxlength="66" class="short"></dd>
+	<dt>Account Name:</dt><dd><input id="authkeyacct" type="text" value="Wallet 1" maxlength="" class="short"></dd>
+	</div>
+	<dt>Storage retention:</dt><dd><select id="authstor">
+		<option value="0" selected>Browser window</option>
+		<option value="1">Session Storage</option>
+		<option value="2">Local Storage</option>
+	</select> <input id="authsave" type="button" value="Save"> </dd>
+</dl>
+</section>
+
+<section data-id="client">
+<h2>Client</h2>
+<h3>Network Info</h3>
+<div id="networkinfo" class="jsonview"></div>
+
+<h3>Convert to Bech32</h3>
+<dl class="settings">
+	<dt>Input value:</dt><dd><input id="convin" type="text" value="0x0000000000000000000000000000000000000000000000000000000000000000" maxlength="66"></dd>
+	<dt>Input type:</dt><dd><select id="convtype">
+		<option value="hexToBech32" selected>Hex String</option>
+		<option value="hexPublicKeyToBech32Address">Hex public key</option>
+		<option value="aliasIdToBech32">Alias ID</option>
+		<option value="nftIdToBech32">NFT ID</option>
+	</select> <input id="convbech32" type="button" value="Convert"></dd>
+	<dt>Output value:</dt><dd><dd><input id="convout" type="text" readonly="readonly"></dd>
+</dl>
+</section>
+
+<section data-id="milestone">
+<h2>Milestone</h2>
+<dl class="settings">
+	<dt>Milestone Index:</dt><dd><input type="button" id="milestoneprev" value="&lt;" style="width: 2em"><input id="milestoneindex" type="number" value="0" style="width: calc(100vw - 34em);"><input type="button" id="milestonenext" value="&gt;" style="width: 2em"> <input type="button" id="milestoneindexload" value="Load"></dd>
+	<dt>Milestone ID:</dt><dd><input id="milestoneid" type="text" value="" maxlength="66" class="short"> <input type="button" id="milestoneidload" value="Load"></dd>
+</dl>
+<div id="milestonechanges" class="jsonview"></div>
+</section>
+
+<section data-id="retrieve">
+<h2>Block Retriever</h2>
+<dl class="settings">
+	<dt>Block ID:</dt><dd><input id="blockid" type="text" value="" maxlength="66" class="short"> <input type="button" id="blockload" value="Load"></dd>
+	<dt>Resend block:</dt><dd><select id="blockresendtype">
+		<option value="retry" selected>Retry (reattach or promote)</option>
+		<option value="reattach">Reattach if useful</option>
+		<option value="reattachUnchecked">Reattach in any case</option>
+		<option value="promote">Promote if useful</option>
+		<option value="promoteUnchecked">Promote in any case</option>
+	</select> <input type="button" id="blockresend" value="Resend"></dd>
+</dl>
+<h3><tt id="lastLoadedBlock">(no block loaded)</tt></h3>
+<div id="blockmetadata" class="jsonview"></div>
+<p><textarea id="blockraw" readonly></textarea></p>
+</section>
+
+<section data-id="wallet">
+<h2>Wallet</h2>
+<p><label>Wallet: <select id="walletSelect"></select></label> <label><input id="editbeforepost" type="checkbox" checked="checked"> Edit payload before submitting</label></p>
+<div id="accountinfo" class="jsonview"></div>
+<h3>Recover wallets</h3>
+<dl class="settings">
+	<dt>Address Gap Limit:</dt><dd><input id="walletrecoverlimit" type="number" value="10" class="short"> <input type="button" id="walletrecover" value="Recover"></dd>
+</dl>
+<h3>Addresses</h3>
+<div id="accountaddresses"></div>
+<p>For more details about addresses, use the [+Address] button and look at the Addresses tab.</p>
+<p><input type="button" id="walletaddaddress" value="Add (Generate) Address"> <input type="button" id="walletconsolidate" value="Consolidate Funds"></p>
+<h3>Claim Outputs (Payload cannot be edited!)</h3>
+<ul id="claimableoutputs"></ul>
+<p><input type="button" id="walletclaim" value="Claim Selected Outputs"></p>
+<h3>Send</h3>
+<dl class="settings">
+	<dt>Item:</dt><dd><select id="senditem"><option value="B">Base Token</option></select></dd>
+	<dt>Amount:</dt><dd><input id="sendamount" type="number" value="1" class="short"> <input type="button" id="sendburn" value="Burn"></dd>
+	<dt>Recipient address:</dt><dd><input id="sendaddr" type="text" value="" class="short"></dd>
+	<dt>Expiration (seconds):</dt><dd><input id="sendexpir" type="number" value="3600" class="short"> <input type="button" id="sendsend" value="Send"></dd>
+</dl>
+<h3>Create Alias</h3>
+<p><input type="button" id="walletAliasCreate" value="Create"></p>
+<h3>Destroy Alias</h3>
+<dl class="settings">
+	<dt>Alias ID:</dt><dd><input type="text" id="walletAliasId" value="0x0000000000000000000000000000000000000000000000000000000000000000" maxlength="66" class="short">
+	<input type="button" id="walletAliasDestroy" value="Destroy"></dd>
+</dl>
+<h3>Create NFT</h3>
+<dl class="settings">
+	<dt>Metadata:</dt><dd><textarea id="nftmeta">{"standard":"IRC27","version":"v1.0","name":"Placeholder NFT","type":"image/png","uri":"ipfs://bafkreie3j4aqal5p2ts3lhd2cv7d5egq7dbjsmsj3j3xth274f6zystqjm"}</textarea>
+		<input type="button" id="createnft" value="Create">
+	</dd>
+</dl>
+<h3>Create Token</h3>
+<dl class="settings">
+	<dt>Alias ID:</dt><dd><input id="createtokenalias" type="text" value="0x0000000000000000000000000000000000000000000000000000000000000000" class="short"></dd>
+	<dt>Metadata:</dt><dd><textarea id="createtokenmeta">{"standard":"IRC30","name":"Labby","symbol":"Ł","decimals":4}</textarea></dd>
+	<dt>Circulating Supply:</dt><dd><input id="createtokencirc"  type="number" value="1000000" class="short"></dd>
+	<dt>Maximum Supply:</dt><dd><input id="createtokenmax" type="number" value="10000000" class="short"><input type="button" id="createtokencreate" value="Create"></dd>
+</dl>
+<h3>Mint/Melt Tokens</h3>
+<dl class="settings">
+	<dt>Token ID:</dt><dd><input id="edittokenid" type="text" value="0x0000000000000000000000000000000000000000000000000000000000000000000000000000" maxlength="78" class="short"></dd>
+	<dt>Amount:</dt><dd><input id="edittokenamount" type="number" value="1" class="short">
+	<input type="button" id="edittokenmint" value="Mint"><input type="button" id="edittokenmelt" value="Melt"></dd>
+</dl>
+<h3>Destroy Token</h3>
+<dl class="settings">
+	<dt>Token ID:</dt><dd><input type="text" id="destroytokenid" value="0x0000000000000000000000000000000000000000000000000000000000000000000000000000" maxlength="78" class="short">
+	<input type="button" id="destroytoken" value="Destroy"></dd>
+</dl>
+</section>
+
+<section data-id="addr">
+<h2>Addresses</h2>
+<textarea id="addresslist"></textarea>
+<p><input type="button" id="scanaddresses" value="Scan"></p>
+<p>Block payload updates: <input type="button" id="scanupdatenetwork" value="Update Network ID"> <input type="button" id="scanupdateinput" value="Update Inputs Commitment"></p>
+<ul id="addresses"></ul>
+</section>
+
+<section data-id="edit">
+<h2>Block Payload Editor</h2>
+<p><label><input type="checkbox" id="showeditordoc" checked> Show documentation</label></p>
+<div id="editorcontent"></div>
+</section>
+
+<section data-id="sign">
+<h2>Address Scanner / Generator / Signer</h2>
+<h3>Scan</h3>
+<dl class="settings">
+	<dt>Wallet:</dt><dd><select id="scanWalletSelect"></select></dd>
+	<dt>Coin Type:</dt><dd>
+		<input id="scancoin" type="number" style="width: calc(50vw - 50em)">
+		<label><input id="scancoiniota" type="radio" name="scancointype"> IOTA</label>
+		<label><input id="scancoinsmr" type="radio" name="scancointype"> Shimmer</label>
+		<label><input id="scancoinrms" type="radio" name="scancointype"> Testnet</label>
+	</dd>
+	<dt>Bech32 HRP:</dt><dd><input id="scanhrp" type="text" value="iota" class="short"></dd>
+	<dt>Index:</dt><dd><input id="scanmin" type="number" value="0" style="width: calc(50vw - 16em)"> - <input id="scanmax" type="number" value="5" style="width: calc(50vw - 16em)"> <input id="scan" type="button" value="Scan"></dd>
+</dl>
+<h3>Addresses</h3>
+<textarea id="scanresult" style="width: calc(100vw - 10em)"></textarea>
+<h3>Sign</h3>
+<div id="scansign"></div>
+</section>
+
+<section data-id="submit">
+<h2>Block Submitter</h2>
+<h3><tt>postBlockPayload</tt></h3>
+<p><input type="button" id="postBlockPayload" value="Post"></p>
+</section>
+
+</body>

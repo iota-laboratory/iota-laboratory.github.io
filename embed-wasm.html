@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="ISO-8859-1">
+<title>Embed WASM - IOTA Laboratory</title>
+<script type="text/javascript">
+"use strict";
+
+const Base182Map="#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[!]^_`abcdefghijklmnopqrstuvwxyz{|}~¦§¨©ª«¬¥®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ";
+
+window.onload = function() {
+	let wasmURL = "https://cdn.jsdelivr.net/npm/@iota/sdk-wasm@1.1.1/web/wasm/iota_sdk_wasm_bg.wasm";
+	fetch(wasmURL).then(r => new Response(r.body.pipeThrough(new CompressionStream('gzip'))).arrayBuffer()).then(ab => {
+		let buflen = ab.byteLength, arrlen = buflen + 14 - (buflen + 14) % 15;
+		console.log(arrlen%15);
+		var arr = new Uint8Array(arrlen);
+		arr.set(new Uint8Array(ab), 0);
+		let data = '';
+		for(let i = 0; i < arrlen; i += 15) {
+			let sum=0n;
+			let part = "";
+			for(let j=0; j<15; j++) {
+				sum = sum * 256n + BigInt(arr[i + (14 - j)]);
+			}
+			for(let j=0; j<16; j++) {
+				part = Base182Map.charAt(Number(sum % 182n)) + part;
+				sum /= 182n;
+			}
+			data += part;
+		}
+		window.embeddedWasm = function(wasm) {
+			let url = URL.createObjectURL(wasm);
+			WebAssembly.compileStreaming(fetch(url)).then(console.log);
+		};
+		let minJS = ''
+			+	'(()=>{'
+			+		'let i,j,s,u,m="'+Base182Map+'",'
+			+		'd="'+data+'",'
+			+		'l='+arrlen+','
+			+		'a=new Uint8Array(l);'
+			+		'for(i=0;i<l/15;i++){'
+			+			's=0n;'
+			+			'for(j=0;j<16;j++){s=s*182n+BigInt(m.indexOf(d.charAt(i*16+j)));}'
+			+			'for(j=0;j<15;j++){a[i*15+j]=Number(s&255n);s>>=8n;}'
+			+		'}'
+			+		'u=URL.createObjectURL(new Blob([a.slice(0, '+buflen+')]));'
+			+		'fetch(u).then(r=>{URL.revokeObjectURL(u);return new Response(r.body.pipeThrough(new DecompressionStream("gzip"))).blob()}).then(b=>window.embeddedWasm(new Blob([b],{type:"application/wasm"})));'
+			+	'})()';
+		eval(minJS); // make sure it actually works
+		// poor man's ISO-8859-1 encoder
+		let encoded = new Uint8Array(minJS.length);
+		for (let i=0; i<encoded.length; i++) {
+			let c = minJS.charCodeAt(i);
+			if (c < 0 || c > 255) throw "Invalid charcode "+c;
+			encoded[i] = c;
+		}
+		let aTag = document.getElementById("downloader");
+		var blob = new Blob([encoded], { type: "application/octet-stream" });
+		aTag.href = URL.createObjectURL(blob);
+		aTag.click();
+	});
+};
+</script>
+</head>
+<body>
+<h1>Downloading and embedding WASM...</h1>
+<a id="downloader" download="embed_iota_sdk_wasm.min.js" href="">
+</body>
+</html>

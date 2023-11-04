@@ -1,0 +1,83 @@
+body {
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+}
+
+#snackbar {
+	visibility: hidden;
+	min-width: 250px;
+	background-color: #800;
+	color: white;
+	text-align: center;
+	border-radius: 2px;
+	padding: 16px;
+	position: fixed;
+	z-index: 1;
+	right: 30px;
+	bottom: 30px;
+}
+
+#pasteHelper {
+	border: 10px solid red;
+	background-color: #f88;
+	text-align: center;
+	width: 20em;
+}
+
+#snackbar.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
+@keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;}}
+@keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;}}
+
+ul.nav { display: block; margin: 0em; padding: 0em; }
+ul.nav li { display: block; float: left; border: 2px solid black; padding: 5px; background-color: #ff8; cursor: pointer; }
+ul.nav li.sel { background-color: #8f8; font-weight: bold; }
+ul.nav li.auth { color: red; font-style: italic; }
+
+body:not(.authenticated) ul.nav li.auth { display: none; }
+body:not(.connected) ul.nav li.net { display: none; }
+
+section { border: 1px solid black; padding: 5px; background-color: #eef; display: none; }
+section.sel { display: block; }
+
+#editorcontent {
+	font-size: 70%;
+	overflow-x: scroll;
+}
+
+#editorcontent dl, .jsonview dl { border: 1px solid blue; }
+#editorcontent input[type="text"] { width: 500px; }
+
+#editorcontent dl, dl.settings, .jsonview dl {
+	position:relative;
+	padding: 0.5em;
+	margin: 0em;
+}
+
+#editorcontent dt, dl.settings dt {
+	font-weight: bold;
+	float:left;
+	width: 15em;
+}
+
+.jsonview dt {
+	font-weight: bold;
+	margin: 2px 0px;
+}
+
+#editorcontent dd, dl.settings dd {
+	margin-left: 15em;
+	margin-bottom:0.5em;
+}
+
+#editorcontent dl.optional > dd { margin-left: 3em; }
+#editorcontent dl.optional > dt { width: 3em; }
+
+#editorcontent dl.array > dd { margin-left: 10em; }
+#editorcontent dl.array > dt { width: 10em; }
+
+dl.settings input:not([type="button"]):not([type="radio"]) { width: calc(100vw - 25em); }
+
+dl.settings input.short:not([type="button"]):not([type="radio"]) { width: calc(100vw - 30em); }
+
+textarea { width: calc(100vw - 30em); min-height: 6em; }
+
+dd.doc, div.doc { font-style: italic; }
