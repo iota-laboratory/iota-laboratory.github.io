@@ -152,7 +152,7 @@ let blockPayloadTypes = {
 	]},
 	TaggedDataPayload: {e: "Payload", d: "A Tagged Data payload.", g: false, f: [
 		{n: "tag", t: "(HexEncodedString)", d: "A tag as hex-encoded string."},
-		{n: "data", t: "(HexEncodedString)", d: "Index data as hex-encoded string."},
+		{n: "data", t: "(HexEncodedString)?", d: "Index data as hex-encoded string."},
 	]},
 	TimelockUnlockCondition: {e: "UnlockCondition", d: "A Timelock Unlock Condition.", f: [
 		{n: "unixTime", t: "(number)", d: "The Unix timestamp marking the end of the timelock."},

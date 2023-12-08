@@ -550,7 +550,7 @@ window.onload = function() {
 		apiAccount.prepareConsolidateOutputs({force: true}).then(sendOrEditPreparedTransaction, showMessage);
 	});
 	document.getElementById("walletclaim").addEventListener("click", function(e) {
-		apiAccount.claimOutputs(Array.from(document.querySelectorAll(".claimme:checked")).map(c=>c.name)).then(t => updateLastSubmittedBlock(t.blockId), showMessage);
+		apiAccount.prepareClaimOutputs(Array.from(document.querySelectorAll(".claimme:checked")).map(c=>c.name)).then(sendOrEditPreparedTransaction, showMessage);
 	});
 	document.getElementById("senditem").addEventListener("change", function(e) {
 		document.getElementById("sendamount").value = document.getElementById("senditem").selectedOptions[0].dataset.max;
@@ -844,7 +844,7 @@ window.onload = function() {
 		initBlockPayloadEditor();
 		apiClient.postBlockPayload(payload).then(([blockid,block]) => updateLastSubmittedBlock(blockid));
 	});
-	let wasmURL = "https://cdn.jsdelivr.net/npm/@iota/sdk-wasm@1.1.1/web/wasm/iota_sdk_wasm_bg.wasm";
+	let wasmURL = "https://cdn.jsdelivr.net/npm/@iota/sdk-wasm@1.1.2/web/wasm/iota_sdk_wasm_bg.wasm";
 	if (location.protocol == "file:") {
 		fetch(wasmURL).then(r => r.blob(), e => {
 			return new Promise((resolve,reject) => {
