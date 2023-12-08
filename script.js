@@ -1,6 +1,6 @@
 "use strict";
 
-let blockPayloadInEditor = {}, blockPayloadEditorDoc = true, iotaInitialized = false, pasteAction = null;
+let blockPayloadInEditor = {}, blockPayloadEditorDoc = true, iotaInitialized = false, pasteAction = null, cachedOutputs = {}, apiClientNetworkId = "", apiClientRentStructure = {};
 let iotaAccount = null, iotaAccountNetworkName = null, iotaNetwork = null;
 let apiClient = null, apiWallet = null, apiAccount = null, apiSecretManager = null;
 
@@ -63,6 +63,7 @@ function networkChanged() {
 	if (iotaNetwork != null && networkName == iotaNetwork.name) return;
 	document.body.classList.remove("connected");
 	if (apiClient != null) {
+		cachedOutputs = {};
 		apiClient.destroy();
 		apiClient = null;
 	}
@@ -71,6 +72,8 @@ function networkChanged() {
 	if (iotaNetwork != null) {
 		apiClient = new iotaSdkWasm.Client({ nodes: [iotaNetwork.url] });
 		Promise.all([apiClient.getInfo(), apiClient.getNetworkId()]).then(([info,netid]) => {
+			apiClientNetworkId = netid;
+			apiClientRentStructure = info.nodeInfo.protocol.rentStructure;
 			info.nodeInfo.protocol.networkId = netid;
 			let networkinfo = document.getElementById("networkinfo");
 			networkinfo.innerHTML = "";
@@ -213,6 +216,22 @@ function addInput(input, unlock, output) {
 	});
 }
 
+function getCachedOutputs(outputIDs) {
+	let promises = [];
+	for(let outputID of outputIDs) {
+		let result = cachedOutputs[outputID];
+		if (result !== undefined) {
+			promises.push(Promise.resolve(result));
+		} else {
+			promises.push(apiClient.getOutput(outputID).then(o => {
+				cachedOutputs[outputID] = o;
+				return o;
+			}));
+		}
+	}
+	return Promise.all(promises);
+}
+
 function selectedWalletChanged() {
 	let index = document.getElementById("walletSelect").selectedIndex;
 	apiWallet.getAccount(index).then(a => (apiAccount = a).sync()).then(info => {
@@ -241,7 +260,7 @@ function selectedWalletChanged() {
 		return Promise.all([apiAccount.addresses(), apiAccount.addressesWithUnspentOutputs(), apiAccount.claimableOutputs('All')]);
 	}).then(([addr,addrU,claimO]) => {
 		let outputIDs = addrU.flatMap(a => a.outputIds);
-		return Promise.all([Promise.resolve([addr,addrU,outputIDs,claimO]), apiClient.getOutputs(outputIDs)]);
+		return Promise.all([Promise.resolve([addr,addrU,outputIDs,claimO]), getCachedOutputs(outputIDs)]);
 	}).then(([[addr, addrU, outputIDs,claimO], outputList]) => {
 		let outputs = {};
 		for(let i = 0; i<outputIDs.length; i++) {
@@ -654,7 +673,7 @@ window.onload = function() {
 					oli.innerHTML = 'Output: <tt>'+explorerLink('output', o)+'</tt> <a href="#">[+Input]</a> <a href="#">[+Input+Output]</a>';
 					let oiul = document.createElement("ul");
 					oli.appendChild(oiul);
-					apiClient.getOutput(o).then(result => {
+					getCachedOutputs([o]).then(([result]) => {
 						let oo = result.output;
 						let input = new iotaSdkWasm.UTXOInput(result.metadata.transactionId, result.metadata.outputIndex);
 						oli.firstChild.nextElementSibling.nextElementSibling.addEventListener("click", function(e) {
@@ -727,28 +746,19 @@ window.onload = function() {
 			}, showMessage);
 		}
 	});
-	document.getElementById("scanupdatenetwork").addEventListener("click", function(e) {
-		apiClient.getNetworkId().then(networkId => {
-			updateTransactionPayload(transactionPayload => {
-				transactionPayload.essence.networkId = networkId;
-			});
-		});
+	document.getElementById("validateTimeNow").addEventListener("click", function() {
+		document.getElementById("validateTime").value = Date.now() / 1000 | 0;
 	});
-	document.getElementById("scanupdateinput").addEventListener("click", function(e) {
-		let inputOutputIDs = [];
-		updateTransactionPayload(transactionPayload => {
-			for(let input of transactionPayload.essence.inputs) {
-				if (input instanceof iotaSdkWasm.UTXOInput) {
-					inputOutputIDs.push(iotaSdkWasm.Utils.computeOutputId(input.transactionId, input.transactionOutputIndex));
-				}
-			}
-		});
-		apiClient.getOutputs(inputOutputIDs).then(responses => {
-			let inputOutputs = responses.map(r => r.output);
-			updateTransactionPayload(transactionPayload => {
-				transactionPayload.essence.inputsCommitment = iotaSdkWasm.Utils.computeInputsCommitment(inputOutputs);
-			});
-		});
+	document.getElementById("validatePayload").addEventListener("click", function() {
+		let timestamp = +document.getElementById("validateTime").value;
+		if (timestamp == 0) {
+			timestamp = Date.now() / 1000 | 0;
+		}
+		if (blockPayloadInEditor["(type)"] !== 'TransactionPayload') {
+			document.getElementById("validationsummary").innerHTML = "No transaction in block payload editor";
+			return;
+		}
+		validatePayload(unmarshalFromJSON(blockPayloadInEditor, 'TransactionPayload'), timestamp);
 	});
 	document.getElementById("scancoin").addEventListener("change", updateScanCoin);
 	document.getElementById("scancoiniota").addEventListener("click", function() { document.getElementById("scancoin").value = iotaSdkWasm.CoinType.IOTA; });
@@ -1050,6 +1060,76 @@ function copyPasteBlockPayloadEditorElement(parent, elem, type, copyLink, pasteL
 	});
 }
 
+function validatePayload(payload, timestamp) {
+	let errors = "";
+	if (payload.essence.networkId !== apiClientNetworkId) {
+		errors += "Network ID invalid: " + payload.essence.networkId + " != " + apiClientNetworkId + ' <input type="button" id="updatenetwork" value="Update Network ID"><br>';
+	}
+	let inputOutputIDs = [];
+	for(const input of payload.essence.inputs) {
+		if (input instanceof iotaSdkWasm.UTXOInput) {
+			inputOutputIDs.push(iotaSdkWasm.Utils.computeOutputId(input.transactionId, input.transactionOutputIndex));
+		}
+	}
+	for(const i in payload.essence.outputs) {
+		const output = payload.essence.outputs[i]
+		const deposit = iotaSdkWasm.Utils.computeStorageDeposit(output, apiClientRentStructure);
+		if (BigInt(output.amount) < deposit) {
+			errors += "Amount of output #"+i+" ("+output.amount+") does not cover storage deposit (" + deposit+")<br>";
+		}
+	}
+	return new Promise((resolved, rejected) => {
+		getCachedOutputs(inputOutputIDs).then(inputOutputs => {
+			let commitment = iotaSdkWasm.Utils.computeInputsCommitment(inputOutputs.map(o => o.output));
+			if (payload.essence.inputsCommitment !== commitment) {
+				errors += "Inputs commitment invalid: " + payload.essence.inputsCommitment + " != " + commitment + ' <input type="button" id="updateinput" value="Update Inputs Commitment"><br>';
+			}
+			let utxoInputsData = inputOutputs.map(o => ({output: o.output, outputMetadata: o.metadata}));
+			let validationResult = "";
+			try {
+				validationResult = iotaSdkWasm.Utils.verifyTransactionSemantic(utxoInputsData, payload, timestamp);
+			} catch (e) {
+				validationResult = "ERROR: " + JSON.stringify(e);
+			}
+			if (validationResult != "None") {
+				errors += "Semantic verification failed: " + validationResult + "<br>";
+			}
+			if (errors == "") {
+				document.getElementById("validationsummary").innerHTML = "Validation ok";
+				resolved(true);
+			} else {
+				document.getElementById("validationsummary").innerHTML = errors;
+				if (document.getElementById("updatenetwork") !== null) {
+					document.getElementById("updatenetwork").addEventListener("click", function(e) {
+						updateTransactionPayload(transactionPayload => {
+							transactionPayload.essence.networkId = apiClientNetworkId;
+						});
+					});
+				}
+				if (document.getElementById("updateinput") !== null) {
+					document.getElementById("updateinput").addEventListener("click", function(e) {
+						let inputOutputIDs = [];
+						updateTransactionPayload(transactionPayload => {
+							for(let input of transactionPayload.essence.inputs) {
+								if (input instanceof iotaSdkWasm.UTXOInput) {
+									inputOutputIDs.push(iotaSdkWasm.Utils.computeOutputId(input.transactionId, input.transactionOutputIndex));
+								}
+							}
+						});
+						getCachedOutputs(inputOutputIDs).then(responses => {
+							let inputOutputs = responses.map(r => r.output);
+							updateTransactionPayload(transactionPayload => {
+								transactionPayload.essence.inputsCommitment = iotaSdkWasm.Utils.computeInputsCommitment(inputOutputs);
+							});
+						});
+					});
+				}
+				resolved(false);
+			}
+		});
+	});
+}
+
 function replaceObject(obj, replacement) {
 	for(let p in obj) {
 		delete obj[p];
@@ -1101,23 +1181,45 @@ function showJSON(parent, elem) {
 	}
 }
 
-async function testBlockPayloadEditor() {
+async function testValidation(blockid, payload, validationCache) {
+	let blockmeta = await apiClient.getBlockMetadata(blockid);
+	if (blockmeta.ledgerInclusionState !== 'included')
+		return;
+	let timestamp = validationCache["mt-" + blockmeta.referencedByMilestoneIndex];
+	if (timestamp === undefined) {
+		let milestone = await apiClient.getMilestoneByIndex(blockmeta.referencedByMilestoneIndex);
+		timestamp = milestone.timestamp;
+		validationCache["mt-" + milestone.index] = timestamp;
+	}
+	if (!await validatePayload(payload, timestamp)) {
+		throw "Validation of " + blockid + " failed";
+	}
+}
+
+async function testBlockPayloadEditor(validate) {
 	if (window.testRunning) {
 		window.testRunning = false;
 		return;
 	}
 	window.testRunning = true;
 	let blockidqueue = [];
+	let seenBlocks = {};
+	let validationCache = {};
 	let info = await apiClient.getInfo();
 	let milestone = await apiClient.getMilestoneByIndex(info.nodeInfo.status.latestMilestone.index);
 	blockidqueue.push(...milestone.parents);
 	while(blockidqueue.length > 0 && window.testRunning) {
 		let blockid = blockidqueue.shift();
+		if (seenBlocks[blockid]) continue;
+		seenBlocks[blockid] = true;
 		console.log(blockid);
 		let block = await apiClient.getBlock(blockid);
 		blockidqueue.push(...block.parents);
 		block.payload = unmarshalFromJSON(marshalToJSON(block.payload, 'Payload'), 'Payload');
 		if (iotaSdkWasm.Utils.blockId(block) != blockid) throw "Mismatch in block "+blockid;
 		loadBlockPayload(block.payload);
+		if (validate && block.payload instanceof iotaSdkWasm.TransactionPayload) {
+			await testValidation(blockid, block.payload, validationCache);
+		}
 	}
 }

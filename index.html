@@ -26,6 +26,7 @@
 	<li class="auth net" data-id="wallet">Wallet</li>
 	<li class="net" data-id="addr">Addresses</li>
 	<li data-id="edit">Block Payload Editor</li>
+	<li class="net" data-id="validate">Validator</li>
 	<li class="auth" data-id="sign">Signer</li>
 	<li class="net" data-id="submit">Block Submitter</li>
 </ul>
@@ -189,7 +190,6 @@
 <h2>Addresses</h2>
 <textarea id="addresslist"></textarea>
 <p><input type="button" id="scanaddresses" value="Scan"></p>
-<p>Block payload updates: <input type="button" id="scanupdatenetwork" value="Update Network ID"> <input type="button" id="scanupdateinput" value="Update Inputs Commitment"></p>
 <ul id="addresses"></ul>
 </section>
 
@@ -197,6 +197,14 @@
 <h2>Block Payload Editor</h2>
 <p><label><input type="checkbox" id="showeditordoc" checked> Show documentation</label></p>
 <div id="editorcontent"></div>
+</section>
+
+<section data-id="validate">
+<h2>Validator</h2>
+<p>Timestamp: <input id="validateTime" type="number" value="0" style="width: calc(50vw - 50em)"><input type="button" id="validateTimeNow" value="Now"></p>
+<p><input type="button" id="validatePayload" value="Validate"></p>
+<h3>Summary</h3>
+<p id="validationsummary">(Not validated yet)</p>
 </section>
 
 <section data-id="sign">
