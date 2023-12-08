@@ -27,6 +27,25 @@ body {
 @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;}}
 @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;}}
 
+#versionswitcher {
+	display: none;
+	position:absolute;
+	top: 0px;
+	right: 15em;
+	border: 1px solid black;
+	border-top: none;
+	border-radius: 0 0 1em 1em;
+	background-color: #eee;
+	height: 2em;
+	width: 10em;
+	text-align: center;
+	line-height: 1.5em;
+}
+
+#versionswitcher a:not([href]) {
+	font-weight: bold;
+}
+
 ul.nav { display: block; margin: 0em; padding: 0em; }
 ul.nav li { display: block; float: left; border: 2px solid black; padding: 5px; background-color: #ff8; cursor: pointer; }
 ul.nav li.sel { background-color: #8f8; font-weight: bold; }

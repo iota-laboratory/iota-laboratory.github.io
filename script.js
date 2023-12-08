@@ -871,6 +871,10 @@ window.onload = function() {
 		});
 	} else {
 		initIota(wasmURL);
+		if (location.host == 'iota-laboratory.github.io') {
+			document.querySelector(location.pathname.startsWith("/xv/") ? "#versionswitcher a:last-child" : "#versionswitcher a:first-child").removeAttribute("href");
+			document.getElementById("versionswitcher").style.display="block";
+		}
 	}
 };
 
