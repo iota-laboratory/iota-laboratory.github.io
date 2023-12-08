@@ -857,27 +857,11 @@ window.onload = function() {
 		apiClient.postBlockPayload(payload).then(([blockid,block]) => updateLastSubmittedBlock(blockid));
 	});
 	let wasmURL = "https://cdn.jsdelivr.net/npm/@iota/sdk-wasm@1.1.2/web/wasm/iota_sdk_wasm_bg.wasm";
-	if (location.protocol == "file:") {
-		fetch(wasmURL).then(r => r.blob(), e => {
-			return new Promise((resolve,reject) => {
-				window.embeddedWasm = resolve;
-				let script = document.createElement("script");
-				script.src = "embed_iota_sdk_wasm.min.js";
-				script.charset = "ISO-8859-1";
-				document.head.append(script);
-			});
-		}).then(b => {
-			let u = URL.createObjectURL(b);
-			initIota(u);
-			URL.revokeObjectURL(u);
-		});
-	} else {
 		initIota(wasmURL);
 		if (location.host == 'iota-laboratory.github.io') {
 			document.querySelector(location.pathname.startsWith("/xv/") ? "#versionswitcher a:last-child" : "#versionswitcher a:first-child").removeAttribute("href");
 			document.getElementById("versionswitcher").style.display="block";
 		}
-	}
 };
 
 function initBlockPayloadEditor() {
