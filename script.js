@@ -27,6 +27,8 @@ window.onerror = function(message) {
 
 function initIota(wasmURL) {
 	iotaSdkWasm.init(wasmURL).then(() => {
+		iotaSdkWasmXV.init("https://iota-laboratory.github.io/iota-sdk-wasm-xv/%40iota-laboratory/iota-sdk-wasm-xv/web/wasm/iota_sdk_wasm_bg.wasm");
+	}).then(() => {
 		iotaInitialized = true;
 		networkChanged();
 	}).catch(e => {showMessage("Internal error"); console.error(e);});
@@ -1090,6 +1092,14 @@ function validatePayload(payload, timestamp) {
 			}
 			let utxoInputsData = inputOutputs.map(o => ({output: o.output, outputMetadata: o.metadata}));
 			let validationResult = "";
+			try {
+				validationResult = iotaSdkWasmXV.verifySemanticWithoutUnlocks(utxoInputsData, payload.essence, timestamp);
+			} catch (e) {
+				validationResult = "ERROR: " + JSON.stringify(e);
+			}
+			if (validationResult != "None") {
+				errors += "Semantic verification (without unlocks) failed: " + validationResult + "<br>";
+			}
 			try {
 				validationResult = iotaSdkWasm.Utils.verifyTransactionSemantic(utxoInputsData, payload, timestamp);
 			} catch (e) {
