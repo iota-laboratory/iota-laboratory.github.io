@@ -62,7 +62,7 @@ section.sel { display: block; }
 	overflow-x: scroll;
 }
 
-#editorcontent dl, .jsonview dl { border: 1px solid blue; }
+#editorcontent dl, .jsonview dl { border: 1px solid blue; min-width: fit-content; }
 #editorcontent input[type="text"] { width: 500px; }
 
 #editorcontent dl, dl.settings, .jsonview dl {
