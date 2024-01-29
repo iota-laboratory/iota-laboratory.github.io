@@ -1,6 +1,6 @@
 "use strict";
 
-let blockPayloadInEditor = {}, blockPayloadEditorDoc = true, iotaInitialized = false, pasteAction = null, cachedOutputs = {}, apiClientNetworkId = "", apiClientRentStructure = {};
+let blockPayloadInEditor = {}, blockPayloadEditorDoc = true, iotaInitialized = false, pasteAction = null, cachedOutputs = {}, apiClientNetworkId = "", apiClientProtocolParameters = {};
 let iotaAccount = null, iotaAccountNetworkName = null, iotaNetwork = null;
 let apiClient = null, apiWallet = null, apiAccount = null, apiSecretManager = null;
 
@@ -73,7 +73,7 @@ function networkChanged() {
 		apiClient = new iotaSdkWasm.Client({ nodes: [iotaNetwork.url] });
 		Promise.all([apiClient.getInfo(), apiClient.getNetworkId()]).then(([info,netid]) => {
 			apiClientNetworkId = netid;
-			apiClientRentStructure = info.nodeInfo.protocol.rentStructure;
+			apiClientProtocolParameters = info.nodeInfo.protocol;
 			info.nodeInfo.protocol.networkId = netid;
 			let networkinfo = document.getElementById("networkinfo");
 			networkinfo.innerHTML = "";
@@ -319,9 +319,9 @@ function loadBlockPayload(payload) {
 		switchTab("edit");
 		// hash payload to check for data loss
 		let b = new iotaSdkWasm.Block();
-		b.protocolVersion = 2
-		b.parents = ["0x0000000000000000000000000000000000000000000000000000000000000000"]
-		b.nonce = "0"
+		b.protocolVersion = 2;
+		b.parents = ["0x0000000000000000000000000000000000000000000000000000000000000000"];
+		b.nonce = "0";
 		b.payload = payload;
 		let origHash = iotaSdkWasm.Utils.blockId(b);
 		b.payload = remarshalledPayload;
@@ -750,6 +750,22 @@ window.onload = function() {
 		document.getElementById("validateTime").value = Date.now() / 1000 | 0;
 	});
 	document.getElementById("validatePayload").addEventListener("click", function() {
+		let payload = unmarshalFromJSON(blockPayloadInEditor, 'Payload');
+		apiClient.getTips().then(tips => {
+			let block = new iotaSdkWasm.Block();
+			block.protocolVersion = 2;
+			block.parents = tips;
+			block.payload = payload;
+			block.nonce = "0";
+			let bytes = iotaSdkWasm.Utils.blockBytes(block);
+			document.getElementById("validationrawcontent").innerHTML='<h4>Tips used as parents</h4><ul id="validaterawtips"></ul><h4>Resulting Block</h4><p><textarea id="validaterawblock" readonly></textarea></p>';
+			for (let tip of tips) {
+				let li = document.createElement("li");
+				li.innerText = tip;
+				document.getElementById("validaterawtips").appendChild(li);
+			}
+			document.getElementById("validaterawblock").value = Array.from(bytes, b => b.toString(16).padStart(2, "0")).join(" ").replace(/00 00 00 00 00 00 00 00$/, "[Nonce]");
+		});
 		let timestamp = +document.getElementById("validateTime").value;
 		if (timestamp == 0) {
 			timestamp = Date.now() / 1000 | 0;
@@ -758,7 +774,7 @@ window.onload = function() {
 			document.getElementById("validationsummary").innerHTML = "No transaction in block payload editor";
 			return;
 		}
-		validatePayload(unmarshalFromJSON(blockPayloadInEditor, 'TransactionPayload'), timestamp);
+		validatePayload(payload, timestamp);
 	});
 	document.getElementById("scancoin").addEventListener("change", updateScanCoin);
 	document.getElementById("scancoiniota").addEventListener("click", function() { document.getElementById("scancoin").value = iotaSdkWasm.CoinType.IOTA; });
@@ -854,7 +870,7 @@ window.onload = function() {
 		initBlockPayloadEditor();
 		apiClient.postBlockPayload(payload).then(([blockid,block]) => updateLastSubmittedBlock(blockid));
 	});
-	let wasmURL = "https://cdn.jsdelivr.net/npm/@iota/sdk-wasm@1.1.2/web/wasm/iota_sdk_wasm_bg.wasm";
+	let wasmURL = "https://cdn.jsdelivr.net/npm/@iota/sdk-wasm@1.1.3/web/wasm/iota_sdk_wasm_bg.wasm";
 	if (location.protocol == "file:") {
 		fetch(wasmURL).then(r => r.blob(), e => {
 			return new Promise((resolve,reject) => {
@@ -1077,10 +1093,15 @@ function validatePayload(payload, timestamp) {
 	}
 	for(const i in payload.essence.outputs) {
 		const output = payload.essence.outputs[i]
-		const deposit = iotaSdkWasm.Utils.computeStorageDeposit(output, apiClientRentStructure);
+		const deposit = iotaSdkWasm.Utils.computeStorageDeposit(output, apiClientProtocolParameters.rentStructure);
 		if (BigInt(output.amount) < deposit) {
 			errors += "Amount of output #"+i+" ("+output.amount+") does not cover storage deposit (" + deposit+")<br>";
 		}
+	}
+	try {
+		console.log(iotaSdkWasm.Utils.verifyTransactionSyntax(payload, apiClientProtocolParameters));
+	} catch (e) {
+		errors += "Syntactic verification failed: " + JSON.stringify(e) + "<br>";
 	}
 	return new Promise((resolved, rejected) => {
 		getCachedOutputs(inputOutputIDs).then(inputOutputs => {

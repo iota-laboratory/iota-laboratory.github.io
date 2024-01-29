@@ -9,7 +9,7 @@
 const Base182Map="#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[!]^_`abcdefghijklmnopqrstuvwxyz{|}~¦§¨©ª«¬¥®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ";
 
 window.onload = function() {
-	let wasmURL = "https://cdn.jsdelivr.net/npm/@iota/sdk-wasm@1.1.2/web/wasm/iota_sdk_wasm_bg.wasm";
+	let wasmURL = "https://cdn.jsdelivr.net/npm/@iota/sdk-wasm@1.1.3/web/wasm/iota_sdk_wasm_bg.wasm";
 	fetch(wasmURL).then(r => new Response(r.body.pipeThrough(new CompressionStream('gzip'))).arrayBuffer()).then(ab => {
 		let buflen = ab.byteLength, arrlen = buflen + 14 - (buflen + 14) % 15;
 		console.log(arrlen%15);
