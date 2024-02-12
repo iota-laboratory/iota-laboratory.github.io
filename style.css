@@ -93,9 +93,9 @@ section.sel { display: block; }
 #editorcontent dl.array > dd { margin-left: 10em; }
 #editorcontent dl.array > dt { width: 10em; }
 
-dl.settings input:not([type="button"]):not([type="radio"]) { width: calc(100vw - 25em); }
+dl.settings input:not([type="button"]):not([type="radio"]):not([type="checkbox"]) { width: calc(100vw - 25em); }
 
-dl.settings input.short:not([type="button"]):not([type="radio"]) { width: calc(100vw - 30em); }
+dl.settings input.short:not([type="button"]):not([type="radio"]):not([type="checkbox"]) { width: calc(100vw - 30em); }
 
 textarea { width: calc(100vw - 30em); min-height: 6em; }
 
