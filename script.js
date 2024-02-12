@@ -2,7 +2,7 @@
 
 let blockPayloadInEditor = {}, blockPayloadEditorDoc = true, iotaInitialized = false, pasteAction = null, cachedOutputs = {}, apiClientNetworkId = "", apiClientProtocolParameters = {};
 let iotaAccount = null, iotaAccountNetworkName = null, iotaNetwork = null;
-let apiClient = null, apiWallet = null, apiAccount = null, apiSecretManager = null;
+let apiClient = null, apiWallet = null, apiAccount = null, apiSecretManager = null, powTime = "";
 
 let iotaAccounts = {}, iotaNetworks = {
 	"IOTA": {name: "IOTA", url: "https://api.stardust-mainnet.iotaledger.net/", coin: iotaSdkWasm.CoinType.IOTA, exp: "https://explorer.iota.org/mainnet/"},
@@ -71,10 +71,11 @@ function networkChanged() {
 	initNetEdit(iotaNetwork);
 	if (iotaNetwork != null) {
 		apiClient = new iotaSdkWasm.Client({ nodes: [iotaNetwork.url] });
-		Promise.all([apiClient.getInfo(), apiClient.getNetworkId()]).then(([info,netid]) => {
+		Promise.all([apiClient.getInfo(), apiClient.getNetworkId(), apiClient.getNetworkInfo()]).then(([info,netid,netinfo]) => {
 			apiClientNetworkId = netid;
 			apiClientProtocolParameters = info.nodeInfo.protocol;
 			info.nodeInfo.protocol.networkId = netid;
+			info.networkInfo = netinfo;
 			let networkinfo = document.getElementById("networkinfo");
 			networkinfo.innerHTML = "";
 			showJSON(networkinfo, info);
@@ -83,6 +84,9 @@ function networkChanged() {
 			document.getElementById("scanhrp").value = info.nodeInfo.protocol.bech32Hrp;
 			document.getElementById("milestoneindex").value = +info.nodeInfo.status.latestMilestone.index;
 			document.getElementById("milestoneid").value = info.nodeInfo.status.latestMilestone.milestoneId;
+			document.getElementById("clienttipsinterval").value = netinfo.tipsInterval;
+			document.getElementById("clientfallbackpow").checked = netinfo.fallbackToLocalPow;
+			document.getElementById("clientlocalpow").checked = netinfo.localPow;
 		});
 		document.body.classList.add("connected");
 	}
@@ -232,6 +236,15 @@ function getCachedOutputs(outputIDs) {
 	return Promise.all(promises);
 }
 
+function runPoW() {
+	let timeout = +document.getElementById("powtimeout").value;
+	return iotaPoW(document.getElementById("powblockhash").value, +document.getElementById("powtargetzeros").value,
+		BigInt(document.getElementById("powminnonce").value),
+		+document.getElementById("powworkercount").value,
+		BigInt(document.getElementById("powmaxnonce").value),
+		timeout == 0 ? undefined : timeout * 1000);
+}
+
 function selectedWalletChanged() {
 	let index = document.getElementById("walletSelect").selectedIndex;
 	apiWallet.getAccount(index).then(a => (apiAccount = a).sync()).then(info => {
@@ -368,6 +381,8 @@ function loadBlock(id) {
 		showJSON(md, metadata);
 		switchTab("retrieve");
 		document.getElementById("blockraw").value = Array.from(raw, b => b.toString(16).padStart(2, "0")).join(" ");
+		document.getElementById("postblocktips").value = block.parents.join("\n");
+		document.getElementById("postblocknonce").value = block.nonce;
 	});
 }
 
@@ -530,6 +545,16 @@ window.onload = function() {
 		}
 		accountChanged();
 	});
+	document.getElementById("clientupdate").addEventListener("click", function(e) {
+		apiClient = new iotaSdkWasm.Client({ nodes: [iotaNetwork.url], tipsInterval: +document.getElementById("clienttipsinterval").value,
+			localPow: document.getElementById("clientlocalpow").checked, fallbackToLocalPow: document.getElementById("clientfallbackpow").checked});
+		apiClient.getNetworkInfo().then(netinfo => {
+			document.getElementById("clienttipsinterval").value = netinfo.tipsInterval;
+			document.getElementById("clientfallbackpow").checked = netinfo.fallbackToLocalPow;
+			document.getElementById("clientlocalpow").checked = netinfo.localPow;
+		});
+	});
+
 	document.getElementById("convbech32").addEventListener("click", function(e) {
 		apiClient[document.getElementById("convtype").value](document.getElementById("convin").value, document.getElementById("scanhrp").value).then( v => document.getElementById("convout").value = v, showMessage);
 	});
@@ -865,10 +890,89 @@ window.onload = function() {
 		});
 	});
 	document.getElementById("postBlockPayload").addEventListener("click", function(e) {
+		document.getElementById("timinginfo").innerText = "postBlockPayload running...";
+		let startTime = Date.now();
 		let payload = unmarshalFromJSON(blockPayloadInEditor, "Payload");
-		blockPayloadInEditor = initializeTypeAsJSON("Payload");
-		initBlockPayloadEditor();
-		apiClient.postBlockPayload(payload).then(([blockid,block]) => updateLastSubmittedBlock(blockid));
+		apiClient.postBlockPayload(payload).then(([blockid,block]) => {
+			updateLastSubmittedBlock(blockid);
+			blockPayloadInEditor = initializeTypeAsJSON("Payload");
+			initBlockPayloadEditor();
+			document.getElementById("timinginfo").innerText = "postBlockPayload took "+(Date.now()-startTime)+" ms";
+		}, showMessage);
+	});
+	document.getElementById("postfreshtips").addEventListener("click", function(e) {
+		apiClient.getTips().then(tips => {
+			document.getElementById("postblocktips").value = tips.join("\n");
+		}, showMessage);
+	});
+	document.getElementById("postBlock").addEventListener("click", function(e) {
+		document.getElementById("timinginfo").innerText = powTime + "postBlock running...";
+		let startTime = Date.now();
+		let payload = unmarshalFromJSON(blockPayloadInEditor, "Payload");
+		let block = new iotaSdkWasm.Block();
+		block.protocolVersion = 2;
+		block.parents = document.getElementById("postblocktips").value.split(/[\r\n]+/);
+		block.payload = payload;
+		block.nonce = document.getElementById("postblocknonce").value;
+		apiClient.postBlock(block).then(blockid => {
+			updateLastSubmittedBlock(blockid);
+			blockPayloadInEditor = initializeTypeAsJSON("Payload");
+			initBlockPayloadEditor();
+			document.getElementById("timinginfo").innerText = powTime + "postBlock took "+(Date.now()-startTime)+" ms";
+			powTime = "";
+		}, showMessage);
+	});
+	document.getElementById("powupdatehash").addEventListener("click", function(e) {
+		let payload = unmarshalFromJSON(blockPayloadInEditor, "Payload");
+		let block = new iotaSdkWasm.Block();
+		block.protocolVersion = 2;
+		block.parents = document.getElementById("postblocktips").value.split(/[\r\n]+/);
+		block.payload = payload;
+		block.nonce = "0";
+		document.getElementById("powblockhash").value = iotaSdkWasm.Utils.blockHashWithoutNonce(block);
+		let targetZeros = 1;
+		const blocksize = iotaSdkWasm.Utils.blockBytes(block).length;
+		while(3**targetZeros / blocksize < apiClientProtocolParameters.minPowScore) {
+			targetZeros++;
+		}
+		document.getElementById("powtargetzeros").value = targetZeros;
+	});
+	document.getElementById("powwasmfile").addEventListener("change", function(e) {
+		let file = document.getElementById("powwasmfile").value;
+		iotaPoW.initWasm(file == '' ? null : document.getElementById("powscript").src.replace(/\/[^/]+$/, file));
+	});
+	document.getElementById("powrun").addEventListener("click", function(e) {
+		document.getElementById("timinginfo").innerText = "PoW running...";
+		let startTime = Date.now();
+		runPoW().then(nonce => {
+			if (nonce == null) {
+				document.getElementById("timinginfo").innerText = "PoW timed out after "+(Date.now()-startTime)+" ms";
+			} else {
+				document.getElementById("postblocknonce").value = ""+nonce;
+				document.getElementById("timinginfo").innerText = "PoW took "+(Date.now()-startTime)+" ms";
+			}
+		});
+	});
+	document.getElementById("powrepeat").addEventListener("click", async function(e) {
+		let startTime = Date.now();
+		let count = +document.getElementById("powrepetittions").value;
+		for (let i = 1; i <= count; i++) {
+			document.getElementById("timinginfo").innerText = "PoW attempt " + i + " of " + count;
+			let tips = await apiClient.getTips();
+			document.getElementById("postblocktips").value = tips.join("\n");
+			document.getElementById("powupdatehash").click();
+			let nonce = await runPoW();
+			if (nonce != null) {
+				document.getElementById("postblocknonce").value = ""+nonce;
+				powTime = "PoW took "+(Date.now()-startTime)+" ms, ";
+				document.getElementById("postBlock").click();
+				return;
+			}
+		};
+		document.getElementById("timinginfo").innerText = count + " PoW attempts failed";
+	});
+	fetch(document.getElementById("powscript").src).then(r => r.text()).then(text => {
+		iotaPoW.initWorker(URL.createObjectURL(new Blob([text], { type: 'text/javascript' })));
 	});
 	let wasmURL = "https://cdn.jsdelivr.net/npm/@iota/sdk-wasm@1.1.3/web/wasm/iota_sdk_wasm_bg.wasm";
 	if (location.protocol == "file:") {

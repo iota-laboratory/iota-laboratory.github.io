@@ -2,6 +2,7 @@
 <html>
 <head>
 <title>IOTA Laboratory</title>
+<script id="powscript" src="https://cdn.jsdelivr.net/gh/iota-laboratory/iota-curl-browser-pow.js@v1.0.1/dist/iota-pow.min.js"></script>
 <script src="iota_sdk_wasm.min.js"></script>
 <script src="block_payload_types.js"></script>
 <script src="script.js"></script>
@@ -92,6 +93,16 @@
 
 <section data-id="client">
 <h2>Client</h2>
+<h3>Network options</h3>
+<dl class="settings">
+	<dt>Tips Interval:</dt><dd><input id="clienttipsinterval" type="number" class="short" value=""> seconds</dd>
+	<dt>PoW:</dt><dd>
+		<label><input id="clientfallbackpow" type="checkbox"> Fallback to Local PoW</label>
+		<label><input id="clientlocalpow" type="checkbox"> Local PoW</label>
+		<input id="clientupdate" type="button" value="Update options">
+	</dd>
+</dl>
+
 <h3>Network Info</h3>
 <div id="networkinfo" class="jsonview"></div>
 
@@ -234,8 +245,36 @@
 
 <section data-id="submit">
 <h2>Block Submitter</h2>
+<p><i id="timinginfo">(Timing information will appear here)</i></p>
 <h3><tt>postBlockPayload</tt></h3>
 <p><input type="button" id="postBlockPayload" value="Post"></p>
+<h3><tt>postBlock</tt></h3>
+<dl class="settings">
+	<dt>Tips:</dt><textarea id="postblocktips"></textarea><input type="button" id="postfreshtips" value="Fresh Tips"><dd>
+	<dt>Nonce:</dt><dd><input id="postblocknonce" type="number" value="0" class="short"><input type="button" id="postBlock" value="Post"></dd>
+</dl>
+<h3>Browser PoW</h3>
+<dl class="settings">
+    <dt>Target Zeros:</dt><dd><input id="powtargetzeros" type="number" min="1" max="243" value="" class="short"></dd>
+    <dt>Block Hash:</dt><dd><input id="powblockhash" type="text" value="" class="short"><input type="button" id="powupdatehash" value="Update"></dd>
+    <dt>Implementation:</dt><dd><select id="powwasmfile">
+        <option value="">Native JavaScript</option>
+        <option value="/normal.wasm">WASM implementation (no SIMD)</option>
+        <option value="/simd.wasm">SIMD implementation</option>
+        <option value="/reference.wasm">WASM reference implementation (slow)</option>
+    </select></dd>
+    <dt>Number of workers:</dt><dd><input id="powworkercount" type="number" min="0" max="64" value="0" style="width: calc(100vw - 40em)">  (0 = in foreground)</dd>
+	<dt>Timeout:</dt><dd><input id="powtimeout" type="number" min="0" max="10000" value="0" style="width: calc(100vw - 40em)"> seconds (0 = none)</dd>
+	<dt>Nonce:</dt><dd>
+		<input id="powminnonce" type="number" value="0" style="width: calc(50vw - 20em)"> -
+		<input id="powmaxnonce" type="number" value="9223372036854775807" style="width: calc(50vw - 20em)"> <input type="button" id="powrun" value="Generate Nonce">
+	</dd>
+</dl>
+<h3>Repeat PoW automatically</h3>
+<dl class="settings">
+    <dt>Repetitions:</dt><dd><input id="powrepetittions" type="number" min="1" max="10000" value="10" class="short"> <input type="button" id="powrepeat" value="Repeat"></dd>
+</dl>
+<p>This will repeatedly get fresh tips, update the hash, and try to generate a nonce. Once successful, the block is posted.</p>
 </section>
 
 </body>
