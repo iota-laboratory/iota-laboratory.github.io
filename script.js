@@ -7,7 +7,8 @@ let apiClient = null, apiWallet = null, apiAccount = null, apiSecretManager = nu
 let iotaAccounts = {}, iotaNetworks = {
 	"IOTA": {name: "IOTA", url: "https://api.stardust-mainnet.iotaledger.net/", coin: iotaSdkWasm.CoinType.IOTA, exp: "https://explorer.iota.org/mainnet/"},
 	"Shimmer": {name: "Shimmer", url: "https://api.shimmer.network/", coin: iotaSdkWasm.CoinType.Shimmer, exp: "https://explorer.shimmer.network/shimmer/"},
-	"Public Testnet": {name: "Public Testnet", url: "https://api.testnet.shimmer.network/", coin: 1, exp: "https://explorer.shimmer.network/testnet/"},
+	"Public IOTA Testnet": {name: "Public IOTA Testnet", url: "https://api.testnet.iotaledger.net/", coin: 1, exp: "https://explorer.iota.org/iota-testnet/"},
+	"Public Shimmer Testnet": {name: "Public Shimmer Testnet", url: "https://api.testnet.shimmer.network/", coin: 1, exp: "https://explorer.shimmer.network/testnet/"},
 };
 
 function showMessage(message) {
